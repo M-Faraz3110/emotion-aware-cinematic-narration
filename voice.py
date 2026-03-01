@@ -49,9 +49,21 @@ class VoicePipeline:
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         logger.info(f"Initializing Voice Pipeline on device: {self.device}")
         
+        # Workaround for PyTorch 2.6 weights_only=True default
+        # TTS uses custom classes in pickled models, but is a trusted source
+        import torch as _torch
+        _original_load = _torch.load
+        def _patched_load(*args, **kwargs):
+            kwargs.setdefault('weights_only', False)
+            return _original_load(*args, **kwargs)
+        _torch.load = _patched_load
+        
         # Load XTTS-v2 model
         logger.info(f"Loading TTS model: {config.TTS_MODEL}")
         self.tts = TTS(config.TTS_MODEL).to(self.device)
+        
+        # Restore original torch.load
+        _torch.load = _original_load
         
         logger.info("✓ Voice Pipeline initialized")
         
