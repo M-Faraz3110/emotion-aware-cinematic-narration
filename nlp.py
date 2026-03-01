@@ -1,0 +1,498 @@
+"""
+Stage 2: NLP Pipeline
+Analyzes dialogue with contextual emotion detection, intensity scoring, and cinematic pacing inference.
+
+This module enriches parsed dialogue with:
+- Emotion classification (contextually aware)
+- Intensity scoring (sentiment-based)
+- Pace inference (slow/normal/fast)
+- Pause calculation (based on multiple signals)
+"""
+
+import re
+import logging
+from typing import List, Dict, Optional, Tuple
+
+import spacy
+from transformers import pipeline
+import torch
+
+import config
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+class NLPPipeline:
+    """
+    NLP Pipeline for emotion-aware dialogue analysis.
+    
+    Performs contextual emotion detection, sentiment intensity scoring,
+    and cinematic pacing inference to create a Director's Script.
+    """
+    
+    def __init__(self, device: Optional[str] = None):
+        """
+        Initialize the NLP pipeline with all required models.
+        
+        Args:
+            device: PyTorch device ("cuda" or "cpu"). Auto-detected if None.
+        """
+        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        logger.info(f"Initializing NLP Pipeline on device: {self.device}")
+        
+        # Load models
+        logger.info("Loading emotion classification model...")
+        self.emotion_classifier = pipeline(
+            "text-classification",
+            model=config.EMOTION_MODEL,
+            device=0 if self.device == "cuda" else -1,
+            top_k=None  # Return all class probabilities
+        )
+        
+        logger.info("Loading sentiment intensity model...")
+        self.sentiment_classifier = pipeline(
+            "sentiment-analysis",
+            model=config.SENTIMENT_MODEL,
+            device=0 if self.device == "cuda" else -1
+        )
+        
+        logger.info("Loading spaCy model for dependency parsing...")
+        self.nlp = spacy.load(config.SPACY_MODEL)
+        
+        logger.info("✓ All NLP models loaded successfully")
+    
+    def analyze(self, parsed_dialogue: List[Dict]) -> List[Dict]:
+        """
+        Analyze parsed dialogue and create Director's Script.
+        
+        This is the main entry point that orchestrates the full NLP pipeline:
+        1. Contextual emotion analysis (with 60/40 blending)
+        2. Sentiment intensity scoring
+        3. Pace inference (4 signal types)
+        4. Pause calculation (additive with cap)
+        
+        Args:
+            parsed_dialogue: List of dialogue dicts from parser.py
+                             Each has: line_number, speaker, line, parenthetical, original_text
+        
+        Returns:
+            Director's Script: List of enriched dialogue dicts with:
+                - All original fields
+                - emotion: str (joy, anger, fear, sadness, disgust, surprise, neutral)
+                - intensity: float (0.0 to 1.0)
+                - pace: str (slow, normal, fast)
+                - pause_before: float (seconds)
+        """
+        if not parsed_dialogue:
+            logger.warning("Empty dialogue received, returning empty Director's Script")
+            return []
+        
+        logger.info(f"Analyzing {len(parsed_dialogue)} dialogue lines...")
+        
+        director_script = []
+        
+        for i, dialogue_entry in enumerate(parsed_dialogue):
+            # Extract contextual emotion and intensity
+            emotion, emotion_confidence, intensity = self._analyze_emotion_and_intensity(
+                dialogue_entry, i, parsed_dialogue
+            )
+            
+            # Infer pace and pause
+            pace_score = self._infer_pace(
+                dialogue_entry, emotion, intensity
+            )
+            
+            pause_before = self._calculate_pause(
+                dialogue_entry, emotion, intensity, pace_score, i, parsed_dialogue
+            )
+            
+            # Convert numeric pace to categorical
+            pace = self._pace_score_to_category(pace_score)
+            
+            # Create enriched entry
+            enriched_entry = {
+                **dialogue_entry,  # Keep all original fields
+                "emotion": emotion,
+                "emotion_confidence": round(emotion_confidence, 3),
+                "intensity": round(intensity, 3),
+                "pace": pace,
+                "pace_score": round(pace_score, 3),  # Keep for debugging
+                "pause_before": round(pause_before, 2)
+            }
+            
+            director_script.append(enriched_entry)
+            
+            # Log progress
+            if config.DEBUG_PRINT_DIRECTOR_SCRIPT:
+                logger.info(
+                    f"Line {dialogue_entry['line_number']}: "
+                    f"{emotion}({intensity:.2f}) | "
+                    f"pace={pace} | pause={pause_before:.2f}s"
+                )
+        
+        logger.info(f"✓ Director's Script complete with {len(director_script)} enriched lines")
+        return director_script
+    
+    def _analyze_emotion_and_intensity(
+        self, 
+        dialogue_entry: Dict, 
+        index: int, 
+        all_dialogue: List[Dict]
+    ) -> Tuple[str, float, float]:
+        """
+        Analyze emotion and intensity using contextual awareness and dual inference.
+        
+        Strategy:
+        1. Run emotion model on target line alone (60% weight)
+        2. Run emotion model on context window (40% weight)
+        3. Blend the results
+        4. Extract intensity from sentiment model
+        
+        Args:
+            dialogue_entry: Current dialogue entry
+            index: Index in all_dialogue
+            all_dialogue: Full dialogue list for context
+        
+        Returns:
+            Tuple of (emotion_label, confidence, intensity)
+        """
+        target_line = dialogue_entry['line']
+        
+        # === Step 1: Analyze target line alone (60% weight) ===
+        line_emotion_results = self.emotion_classifier(target_line)[0]
+        line_emotion_scores = {r['label']: r['score'] for r in line_emotion_results}
+        
+        # === Step 2: Analyze with context window (40% weight) ===
+        context_text = self._build_context_window(index, all_dialogue)
+        context_emotion_results = self.emotion_classifier(context_text)[0]
+        context_emotion_scores = {r['label']: r['score'] for r in context_emotion_results}
+        
+        # === Step 3: Blend results (60% line + 40% context) ===
+        blended_scores = {}
+        for emotion in config.EMOTION_LABELS:
+            line_score = line_emotion_scores.get(emotion, 0.0)
+            context_score = context_emotion_scores.get(emotion, 0.0)
+            blended_scores[emotion] = (
+                config.LINE_WEIGHT * line_score + 
+                config.CONTEXT_WEIGHT * context_score
+            )
+        
+        # Get top emotion
+        final_emotion = max(blended_scores, key=blended_scores.__getitem__)
+        final_confidence = blended_scores[final_emotion]
+        
+        # === Step 4: Extract intensity from sentiment ===
+        intensity = self._extract_intensity(target_line)
+        
+        # Apply parenthetical intensity modifiers
+        if dialogue_entry['parenthetical']:
+            intensity = self._apply_parenthetical_intensity_modifier(
+                intensity, dialogue_entry['parenthetical']
+            )
+        
+        return final_emotion, final_confidence, intensity
+    
+    def _build_context_window(self, index: int, all_dialogue: List[Dict]) -> str:
+        """
+        Build context window with N lines before and after target.
+        
+        Args:
+            index: Current line index
+            all_dialogue: Full dialogue list
+        
+        Returns:
+            Context string in natural language format
+        """
+        start_idx = max(0, index - config.CONTEXT_WINDOW_BEFORE)
+        end_idx = min(len(all_dialogue), index + config.CONTEXT_WINDOW_AFTER + 1)
+        
+        context_lines = []
+        for i in range(start_idx, end_idx):
+            # Include speaker for better context
+            speaker = all_dialogue[i]['speaker']
+            line = all_dialogue[i]['line']
+            context_lines.append(f"{speaker}: {line}")
+        
+        return " ".join(context_lines)
+    
+    def _extract_intensity(self, text: str) -> float:
+        """
+        Extract emotion intensity from sentiment analysis.
+        
+        Uses the confidence score from sentiment classification as intensity proxy.
+        
+        Args:
+            text: Input text
+        
+        Returns:
+            Intensity score between 0.0 and 1.0
+        """
+        result = self.sentiment_classifier(text)[0]
+        intensity = result['score']  # Confidence of predicted sentiment
+        
+        # Normalize to 0-1 range (already should be, but ensure)
+        return max(0.0, min(1.0, intensity))
+    
+    def _apply_parenthetical_intensity_modifier(
+        self, 
+        base_intensity: float, 
+        parenthetical: str
+    ) -> float:
+        """
+        Apply intensity modifiers based on parenthetical stage directions.
+        
+        Args:
+            base_intensity: Original intensity score
+            parenthetical: Stage direction (e.g., "quietly", "shouting")
+        
+        Returns:
+            Modified intensity score (clamped to 0.0-1.0)
+        """
+        paren_lower = parenthetical.lower().strip()
+        
+        if paren_lower in config.PARENTHETICAL_MAPPINGS:
+            modifier = config.PARENTHETICAL_MAPPINGS[paren_lower]['intensity_modifier']
+            modified = base_intensity + modifier
+            return max(0.0, min(1.0, modified))
+        
+        return base_intensity
+    
+    def _infer_pace(
+        self, 
+        dialogue_entry: Dict, 
+        emotion: str, 
+        intensity: float
+    ) -> float:
+        """
+        Infer speaking pace using multiple signals.
+        
+        Signals considered:
+        1. Parenthetical override (e.g., "quickly", "slowly")
+        2. Punctuation patterns (!, ?, ...)
+        3. Emotion type (fear/anger = faster, sadness = slower)
+        4. Intensity scaling
+        
+        Args:
+            dialogue_entry: Current dialogue entry
+            emotion: Detected emotion
+            intensity: Emotion intensity
+        
+        Returns:
+            Pace score (negative = slower, positive = faster, 0 = normal)
+        """
+        pace_score = 0.0  # Start at normal
+        
+        # === Signal 1: Parenthetical override ===
+        if dialogue_entry['parenthetical']:
+            paren_lower = dialogue_entry['parenthetical'].lower().strip()
+            if paren_lower in config.PARENTHETICAL_MAPPINGS:
+                paren_pace = config.PARENTHETICAL_MAPPINGS[paren_lower]['pace']
+                if paren_pace == config.PACE_SLOW:
+                    pace_score -= 0.5
+                elif paren_pace == config.PACE_FAST:
+                    pace_score += 0.5
+        
+        # === Signal 2: Punctuation patterns ===
+        line = dialogue_entry['line']
+        
+        if '!' in line:
+            pace_score += 0.3  # Exclamation = faster
+        
+        if '?' in line:
+            pace_score += 0.1  # Question = slightly faster
+        
+        if '...' in line or '…' in line:
+            pace_score -= 0.2  # Ellipsis = slower, trailing off
+        
+        if '—' in line or '--' in line:
+            pace_score += 0.1  # Em dash = slight urgency
+        
+        # === Signal 3: Emotion-based pacing ===
+        if emotion in ['anger', 'fear']:
+            pace_score += 0.2  # High-energy emotions = faster
+        elif emotion in ['sadness', 'disgust']:
+            pace_score -= 0.2  # Low-energy emotions = slower
+        elif emotion == 'surprise':
+            pace_score += 0.1  # Mild increase
+        
+        # === Signal 4: Intensity scaling ===
+        # High intensity = more pronounced (amplify current direction)
+        if intensity > 0.7:
+            pace_score *= 1.2
+        
+        return pace_score
+    
+    def _calculate_pause(
+        self,
+        dialogue_entry: Dict,
+        emotion: str,
+        intensity: float,
+        pace_score: float,
+        index: int,
+        all_dialogue: List[Dict]
+    ) -> float:
+        """
+        Calculate pause before this line using additive signals with cap.
+        
+        Signals considered:
+        1. Parenthetical pauses (beat, pause, etc.)
+        2. Punctuation signals (ellipsis, em dash)
+        3. spaCy dependency parsing (clause boundaries)
+        4. Emotion-intensity scaling
+        
+        Args:
+            dialogue_entry: Current dialogue entry
+            emotion: Detected emotion
+            intensity: Emotion intensity
+            pace_score: Calculated pace score
+            index: Line index
+            all_dialogue: Full dialogue list
+        
+        Returns:
+            Pause duration in seconds (capped at MAX_PAUSE)
+        """
+        pause = config.BASE_PAUSE  # Start with base pause
+        
+        # === Signal 1: Parenthetical override ===
+        if dialogue_entry['parenthetical']:
+            paren_lower = dialogue_entry['parenthetical'].lower().strip()
+            if paren_lower in config.PARENTHETICAL_MAPPINGS:
+                paren_pause = config.PARENTHETICAL_MAPPINGS[paren_lower]['pause_before']
+                pause += paren_pause
+        
+        # === Signal 2: Punctuation ===
+        line = dialogue_entry['line']
+        
+        if '...' in line or '…' in line:
+            pause += config.PAUSE_ELLIPSIS
+        
+        if '—' in line or '--' in line:
+            pause += config.PAUSE_EM_DASH
+        
+        if '?' in line:
+            pause += config.PAUSE_QUESTION
+        
+        # === Signal 3: spaCy dependency parsing (clause boundaries) ===
+        clause_pause = self._detect_clause_boundaries(line)
+        pause += clause_pause
+        
+        # === Signal 4: Emotion-intensity scaling ===
+        if intensity > config.INTENSITY_HIGH_THRESHOLD:
+            pause += config.PAUSE_HIGH_INTENSITY  # High emotion = deliberate delivery
+        elif intensity < config.INTENSITY_LOW_THRESHOLD:
+            pause += config.PAUSE_LOW_INTENSITY  # Low emotion = quicker (negative value)
+        
+        # Cap at maximum
+        pause = max(config.MIN_PAUSE, min(pause, config.MAX_PAUSE))
+        
+        return pause
+    
+    def _detect_clause_boundaries(self, text: str) -> float:
+        """
+        Detect major syntactic boundaries using spaCy dependency parsing.
+        
+        Adds small pauses for:
+        - Subordinate clauses
+        - Conjunctions (and, but, or)
+        - Appositive phrases
+        
+        Args:
+            text: Input text
+        
+        Returns:
+            Additional pause time based on clause count
+        """
+        doc = self.nlp(text)
+        
+        clause_count = 0
+        
+        for token in doc:
+            # Subordinating conjunctions (because, although, if, when, etc.)
+            if token.dep_ in ['mark', 'advcl']:
+                clause_count += 1
+            
+            # Coordinating conjunctions (and, but, or)
+            if token.dep_ == 'cc' and token.text.lower() in ['but', 'and', 'or']:
+                clause_count += 1
+            
+            # Appositive phrases
+            if token.dep_ == 'appos':
+                clause_count += 1
+        
+        # Add 0.2s per major clause boundary (reasonable for natural speech)
+        return clause_count * 0.2
+    
+    def _pace_score_to_category(self, pace_score: float) -> str:
+        """
+        Convert numeric pace score to categorical pace.
+        
+        Thresholds:
+        - < -0.3: slow
+        - -0.3 to 0.3: normal
+        - > 0.3: fast
+        
+        Args:
+            pace_score: Numeric pace score
+        
+        Returns:
+            One of: "slow", "normal", "fast"
+        """
+        if pace_score < -0.3:
+            return config.PACE_SLOW
+        elif pace_score > 0.3:
+            return config.PACE_FAST
+        else:
+            return config.PACE_NORMAL
+
+
+def analyze_dialogue(parsed_dialogue: List[Dict]) -> List[Dict]:
+    """
+    Convenience function to analyze dialogue with NLP pipeline.
+    
+    Args:
+        parsed_dialogue: Output from parser.parse_screenplay()
+    
+    Returns:
+        Director's Script with emotion, intensity, pace, and pause data
+    
+    Example:
+        >>> from parser import parse_screenplay
+        >>> from nlp import analyze_dialogue
+        >>> 
+        >>> script = "JOHN: I never wanted this."
+        >>> parsed = parse_screenplay(script)
+        >>> director_script = analyze_dialogue(parsed)
+        >>> 
+        >>> print(director_script[0]['emotion'])
+        'sadness'
+    """
+    pipeline = NLPPipeline()
+    return pipeline.analyze(parsed_dialogue)
+
+
+if __name__ == "__main__":
+    # Example usage
+    from parser import parse_screenplay
+    import json
+    
+    test_script = """
+    JOHN: I never wanted any of this.
+    MARY: (quietly) But here we are.
+    JOHN: What do we do now?
+    MARY: (pause) We survive. That's what we always do.
+    """
+    
+    # Parse screenplay
+    parsed = parse_screenplay(test_script)
+    
+    # Analyze with NLP
+    nlp = NLPPipeline()
+    director_script = nlp.analyze(parsed)
+    
+    # Print results
+    print("\n" + "="*60)
+    print("DIRECTOR'S SCRIPT")
+    print("="*60)
+    print(json.dumps(director_script, indent=2))

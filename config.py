@@ -1,0 +1,171 @@
+"""
+Configuration file for Emotion-Aware Cinematic Narration Engine.
+Contains model names, paths, and default parameters.
+"""
+
+import os
+from pathlib import Path
+
+# ============================================================================
+# PROJECT PATHS
+# ============================================================================
+
+# Base directory
+BASE_DIR = Path(__file__).parent.absolute()
+
+# Google Drive paths (for Colab)
+DRIVE_MOUNT_PATH = "/content/drive"
+DRIVE_PROJECT_PATH = "/content/drive/MyDrive/NarrationEngine"
+DRIVE_OUTPUT_PATH = os.path.join(DRIVE_PROJECT_PATH, "outputs")
+
+# Local output paths (fallback)
+LOCAL_OUTPUT_PATH = BASE_DIR / "outputs"
+
+# ============================================================================
+# MODEL CONFIGURATIONS
+# ============================================================================
+
+# NLP Models (HuggingFace)
+EMOTION_MODEL = "j-hartmann/emotion-english-distilroberta-base"
+SENTIMENT_MODEL = "cardiffnlp/twitter-roberta-base-sentiment-latest"
+SPACY_MODEL = "en_core_web_trf"  # Transformer-based English model
+
+# Voice Cloning (Coqui TTS)
+TTS_MODEL = "tts_models/multilingual/multi-dataset/xtts_v2"
+
+# ============================================================================
+# NLP PIPELINE PARAMETERS
+# ============================================================================
+
+# Emotion Analysis
+EMOTION_LABELS = ["joy", "anger", "fear", "sadness", "disgust", "surprise", "neutral"]
+
+# Contextual Analysis
+CONTEXT_WINDOW_BEFORE = 2  # Number of lines before target
+CONTEXT_WINDOW_AFTER = 2   # Number of lines after target
+CONTEXT_WEIGHT = 0.4       # 40% weight for context
+LINE_WEIGHT = 0.6          # 60% weight for target line itself
+
+# Intensity thresholds
+INTENSITY_HIGH_THRESHOLD = 0.8    # High emotion intensity
+INTENSITY_LOW_THRESHOLD = 0.3     # Low emotion intensity
+
+# ============================================================================
+# PACING & PAUSE PARAMETERS
+# ============================================================================
+
+# Pace categories
+PACE_SLOW = "slow"
+PACE_NORMAL = "normal"
+PACE_FAST = "fast"
+
+# Base pause values (in seconds)
+BASE_PAUSE = 0.3
+MIN_PAUSE = 0.1
+MAX_PAUSE = 2.0
+
+# Punctuation pause values
+PAUSE_ELLIPSIS = 0.6        # "..."
+PAUSE_EM_DASH = 0.4         # "—"
+PAUSE_QUESTION = 0.1        # "?" (slight increase)
+PAUSE_EXCLAMATION = 0.0     # "!" (typically faster, no extra pause)
+
+# Emotion-based pause modifiers
+PAUSE_HIGH_INTENSITY = 0.4  # Added for intensity > 0.8
+PAUSE_LOW_INTENSITY = -0.2  # Subtracted for intensity < 0.3
+
+# Parenthetical mappings
+PARENTHETICAL_MAPPINGS = {
+    # Pauses
+    "beat": {"pace": PACE_SLOW, "pause_before": 1.2, "intensity_modifier": 0.0},
+    "pause": {"pace": PACE_SLOW, "pause_before": 1.2, "intensity_modifier": 0.0},
+    "long pause": {"pace": PACE_SLOW, "pause_before": 1.8, "intensity_modifier": 0.0},
+    
+    # Quiet/soft delivery
+    "quietly": {"pace": PACE_SLOW, "pause_before": 0.0, "intensity_modifier": -0.2},
+    "whispering": {"pace": PACE_SLOW, "pause_before": 0.0, "intensity_modifier": -0.2},
+    "whispers": {"pace": PACE_SLOW, "pause_before": 0.0, "intensity_modifier": -0.2},
+    "softly": {"pace": PACE_SLOW, "pause_before": 0.0, "intensity_modifier": -0.2},
+    
+    # Loud/intense delivery
+    "shouting": {"pace": PACE_FAST, "pause_before": 0.0, "intensity_modifier": 0.2},
+    "yelling": {"pace": PACE_FAST, "pause_before": 0.0, "intensity_modifier": 0.2},
+    "angry": {"pace": PACE_FAST, "pause_before": 0.0, "intensity_modifier": 0.2},
+    "screaming": {"pace": PACE_FAST, "pause_before": 0.0, "intensity_modifier": 0.25},
+    
+    # Emotional delivery
+    "crying": {"pace": PACE_SLOW, "pause_before": 1.0, "intensity_modifier": 0.2},
+    "sobbing": {"pace": PACE_SLOW, "pause_before": 1.0, "intensity_modifier": 0.2},
+    "breaking": {"pace": PACE_SLOW, "pause_before": 1.0, "intensity_modifier": 0.2},
+    "tearful": {"pace": PACE_SLOW, "pause_before": 0.8, "intensity_modifier": 0.15},
+    
+    # Speed modifiers
+    "quickly": {"pace": PACE_FAST, "pause_before": 0.0, "intensity_modifier": 0.0},
+    "rushed": {"pace": PACE_FAST, "pause_before": -0.2, "intensity_modifier": 0.1},
+    "slowly": {"pace": PACE_SLOW, "pause_before": 0.4, "intensity_modifier": 0.0},
+    "hesitant": {"pace": PACE_SLOW, "pause_before": 0.6, "intensity_modifier": -0.1},
+    "hesitantly": {"pace": PACE_SLOW, "pause_before": 0.6, "intensity_modifier": -0.1},
+}
+
+# ============================================================================
+# VOICE SYNTHESIS PARAMETERS
+# ============================================================================
+
+# Voice sample requirements
+MIN_VOICE_SAMPLE_DURATION = 6.0  # Minimum seconds for voice cloning
+
+# XTTS pace multipliers (relative to normal speech rate)
+XTTS_PACE_MULTIPLIERS = {
+    PACE_SLOW: 0.85,    # 15% slower
+    PACE_NORMAL: 1.0,   # Normal speed
+    PACE_FAST: 1.15,    # 15% faster
+}
+
+# Audio processing
+SAMPLE_RATE = 22050  # Target sample rate for TTS
+AUDIO_FORMAT = "wav"
+FADE_DURATION_MS = 20  # Fade in/out duration to avoid clicks
+
+# ============================================================================
+# GRADIO UI PARAMETERS
+# ============================================================================
+
+# UI Configuration
+GRADIO_THEME = "soft"
+GRADIO_SHARE = True  # Create public URL in Colab
+
+# Example screenplay excerpts
+EXAMPLE_SCRIPTS = {
+    "Blade Runner - Tears in Rain": """ROY: I've seen things you people wouldn't believe.
+Attack ships on fire off the shoulder of Orion.
+I watched C-beams glitter in the dark near the Tannhäuser Gate.
+All those moments will be lost in time, like tears in rain.
+(pause)
+Time to die.""",
+    
+    "No Country for Old Men - Opening": """NARRATOR: I was sheriff of this county when I was twenty-five years old.
+Hard to believe.
+My grandfather was a sheriff too.
+My father...
+(beat)
+He never was.
+I always wondered if he'd taken this job, would he have felt the same way I do.""",
+    
+    "The Dark Knight - Interrogation": """JOKER: (laughing) You have nothing. Nothing to threaten me with.
+Nothing to do with all your strength.
+BATMAN: (quietly) Don't talk like one of them. You're not!
+JOKER: No, you're right. I'm not.
+(beat)
+To them, you're just a freak... like me.""",
+}
+
+# ============================================================================
+# LOGGING AND DEBUG
+# ============================================================================
+
+# Logging level
+LOG_LEVEL = "INFO"  # DEBUG, INFO, WARNING, ERROR
+
+# Debug flags
+DEBUG_SAVE_INTERMEDIATE_AUDIO = False  # Save individual line audio files
+DEBUG_PRINT_DIRECTOR_SCRIPT = True     # Print full Director's Script JSON
