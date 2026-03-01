@@ -1,6 +1,6 @@
 # Core NLP and ML Libraries
 spacy>=3.7.0
-transformers>=4.35.0
+transformers  # Version determined by tortoise-tts compatibility
 torch>=2.1.0
 sentencepiece>=0.1.99
 
