@@ -5,12 +5,12 @@ torch>=2.1.0
 sentencepiece>=0.1.99
 
 # Voice Cloning and Audio Processing
-# Using dev branch for Python 3.12+ compatibility
-git+https://github.com/coqui-ai/TTS.git@dev  # Coqui TTS (XTTS-v2)
+tortoise-tts>=3.0.0  # Tortoise TTS with voice cloning support
 pydub>=0.25.1
 librosa>=0.10.1
 soundfile>=0.12.1
 numpy>=1.24.0
+scipy>=1.11.0
 
 # Screenplay Parsing
 fountain>=0.1.10
