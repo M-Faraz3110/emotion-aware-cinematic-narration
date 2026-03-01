@@ -30,9 +30,8 @@ EMOTION_MODEL = "j-hartmann/emotion-english-distilroberta-base"
 SENTIMENT_MODEL = "cardiffnlp/twitter-roberta-base-sentiment-latest"
 SPACY_MODEL = "en_core_web_trf"  # Transformer-based English model
 
-# Voice Cloning (Tortoise-TTS)
-# Tortoise uses reference audio samples for high-quality voice cloning
-TORTOISE_PRESET = "fast"  # Options: ultra_fast, fast, standard, high_quality
+# Voice Cloning (Coqui TTS)
+TTS_MODEL = "tts_models/multilingual/multi-dataset/xtts_v2"
 
 # ============================================================================
 # NLP PIPELINE PARAMETERS
@@ -115,15 +114,15 @@ PARENTHETICAL_MAPPINGS = {
 # Voice sample requirements
 MIN_VOICE_SAMPLE_DURATION = 6.0  # Minimum seconds for voice cloning
 
-# Tortoise pace multipliers (via time-stretching)
-TORTOISE_PACE_MULTIPLIERS = {
+# XTTS pace multipliers (relative to normal speech rate)
+XTTS_PACE_MULTIPLIERS = {
     PACE_SLOW: 0.85,    # 15% slower
     PACE_NORMAL: 1.0,   # Normal speed
     PACE_FAST: 1.15,    # 15% faster
 }
 
 # Audio processing
-SAMPLE_RATE = 24000  # Tortoise's native sample rate
+SAMPLE_RATE = 22050  # Target sample rate for TTS
 AUDIO_FORMAT = "wav"
 FADE_DURATION_MS = 20  # Fade in/out duration to avoid clicks
 

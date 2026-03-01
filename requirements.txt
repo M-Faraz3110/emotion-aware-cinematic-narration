@@ -6,7 +6,7 @@ spacy>=3.7.0
 sentencepiece>=0.1.99
 
 # Voice Cloning and Audio Processing
-tortoise-tts>=3.0.0  # Tortoise TTS with voice cloning support
+TTS>=0.21.0  # Tortoise TTS with voice cloning support
 pydub>=0.25.1
 librosa>=0.10.1
 soundfile>=0.12.1
