@@ -1,7 +1,8 @@
-# Core NLP and ML Libraries
+# Packages NOT pre-installed in Colab
+# (Colab already has: torch, numpy, scipy, transformers, tokenizers, tqdm)
+
+# NLP
 spacy>=3.7.0
-transformers  # Version determined by tortoise-tts compatibility
-torch>=2.1.0
 sentencepiece>=0.1.99
 
 # Voice Cloning and Audio Processing
@@ -9,8 +10,6 @@ tortoise-tts>=3.0.0  # Tortoise TTS with voice cloning support
 pydub>=0.25.1
 librosa>=0.10.1
 soundfile>=0.12.1
-numpy>=1.24.0
-scipy>=1.11.0
 
 # Screenplay Parsing
 fountain>=0.1.3
@@ -19,8 +18,4 @@ fountain>=0.1.3
 gradio>=4.0.0
 
 # Utilities
-tqdm>=4.66.0
 python-dotenv>=1.0.0
-
-# Optional but recommended for Colab
-ipywidgets>=8.1.0
