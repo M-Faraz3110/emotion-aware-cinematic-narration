@@ -196,14 +196,17 @@ def check_dependencies() -> Dict[str, bool]:
         dependencies['fountain'] = False
     
     # Log results
-    logger.info("Dependency check:")
+    print("Dependency check:")
     for dep, available in dependencies.items():
         status = "✓" if available else "✗"
+        print(f"  {status} {dep}")
         logger.info(f"  {status} {dep}")
     
     all_available = all(dependencies.values())
     if not all_available:
-        logger.warning("Some dependencies are missing. Install with: pip install -r requirements.txt")
+        missing = [dep for dep, avail in dependencies.items() if not avail]
+        print(f"⚠️  Missing dependencies: {', '.join(missing)}")
+        logger.warning(f"Some dependencies are missing: {', '.join(missing)}")
     
     return dependencies
 
