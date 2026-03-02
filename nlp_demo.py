@@ -26,7 +26,7 @@ class NLPDemo:
     def analyze_screenplay(
         self, 
         screenplay_file
-    ) -> Tuple[str, str, str, str, str]:
+    ) -> Tuple[str, str, str, str, str, str]:
         """
         Analyze screenplay and return visualizations.
         
@@ -34,7 +34,7 @@ class NLPDemo:
             screenplay_file: Uploaded screenplay file
             
         Returns:
-            Tuple of (JSON, emotion_chart, pace_chart, character_analysis, stats)
+            Tuple of (JSON, emotion_chart, pace_chart, character_analysis, stats, line_breakdown)
         """
         try:
             # Read and parse screenplay
@@ -44,7 +44,7 @@ class NLPDemo:
             parsed = self.parser.parse(screenplay_text)
             
             if not parsed:
-                return "No dialogue found in screenplay", "", "", "", ""
+                return "No dialogue found in screenplay", "", "", "", "", ""
             
             # Run NLP analysis
             director_script = self.nlp.analyze(parsed)
@@ -55,12 +55,13 @@ class NLPDemo:
             pace_chart = self._create_pace_chart(director_script)
             character_analysis = self._create_character_analysis(director_script)
             stats = self._create_statistics(director_script)
+            line_breakdown = self._create_line_breakdown(director_script)
             
-            return json_output, emotion_chart, pace_chart, character_analysis, stats
+            return json_output, emotion_chart, pace_chart, character_analysis, stats, line_breakdown
             
         except Exception as e:
             error_msg = f"Error analyzing screenplay: {str(e)}"
-            return error_msg, None, None, error_msg, error_msg
+            return error_msg, None, None, error_msg, error_msg, error_msg
     
     def _create_emotion_chart(self, director_script: List[Dict]) -> go.Figure:
         """Create emotion distribution chart."""
@@ -202,6 +203,25 @@ class NLPDemo:
         interpretation = "high" if diversity_score > 70 else "moderate" if diversity_score > 40 else "low"
         
         return f"- **Diversity Score:** {diversity_score:.1f}% ({interpretation} emotional variation)"
+    
+    def _create_line_breakdown(self, director_script: List[Dict]) -> str:
+        """Create line-by-line breakdown with all NLP analysis details."""
+        breakdown = "# Line-by-Line Analysis\n\n"
+        
+        for line_data in director_script:
+            breakdown += f"---\n\n"
+            breakdown += f"**Line {line_data['line_number']}** - {line_data['speaker']}\n\n"
+            breakdown += f"> {line_data['line']}\n\n"
+            
+            if line_data.get('parenthetical'):
+                breakdown += f"*({line_data['parenthetical']})*\n\n"
+            
+            breakdown += f"- **Emotion:** {line_data['emotion']} (confidence: {line_data['emotion_confidence']:.2%})\n"
+            breakdown += f"- **Intensity:** {line_data['intensity']:.3f}\n"
+            breakdown += f"- **Pace:** {line_data['pace']} (score: {line_data['pace_score']:.3f})\n"
+            breakdown += f"- **Pause Before:** {line_data['pause_before']:.2f}s\n\n"
+        
+        return breakdown
 
 
 def create_interface():
@@ -269,6 +289,9 @@ No choice at all.
                 with gr.Tab("📊 Statistics"):
                     stats_output = gr.Markdown()
                 
+                with gr.Tab("� Line-by-Line"):
+                    line_breakdown_output = gr.Markdown()
+                
                 with gr.Tab("😊 Emotion Analysis"):
                     emotion_chart = gr.Plot()
                 
@@ -285,7 +308,7 @@ No choice at all.
         analyze_btn.click(
             fn=demo.analyze_screenplay,
             inputs=[screenplay_input],
-            outputs=[json_output, emotion_chart, pace_chart, character_output, stats_output]
+            outputs=[json_output, emotion_chart, pace_chart, character_output, stats_output, line_breakdown_output]
         )
         
         gr.Markdown("""
