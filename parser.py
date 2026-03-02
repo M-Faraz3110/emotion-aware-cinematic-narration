@@ -120,6 +120,35 @@ class ScreenplayParser:
         else:
             return "raw"
     
+    def _patch_fountain_locale_bug(self):
+        """
+        Patch fountain library to fix Python 3.11+ LOCALE regex bug.
+        
+        The fountain library uses re.LOCALE flag with str patterns,
+        which is deprecated in Python 3.11+. This patches the regex
+        patterns to remove the LOCALE flag.
+        """
+        try:
+            import fountain
+            import re
+            
+            # Find and fix all regex patterns in fountain that use LOCALE
+            for attr_name in dir(fountain):
+                attr = getattr(fountain, attr_name)
+                if isinstance(attr, type(re.compile(''))):
+                    # Check if it uses LOCALE flag
+                    if attr.flags & re.LOCALE:
+                        # Recreate pattern without LOCALE flag
+                        new_flags = attr.flags & ~re.LOCALE
+                        new_pattern = re.compile(attr.pattern, new_flags)
+                        setattr(fountain, attr_name, new_pattern)
+            
+            logger.info("Patched fountain library regex patterns for Python 3.11+ compatibility")
+            return True
+        except Exception as e:
+            logger.debug(f"Could not patch fountain library: {e}")
+            return False
+    
     def _parse_fountain(self, text: str) -> List[Dict]:
         """
         Parse Fountain-formatted screenplay.
@@ -136,6 +165,9 @@ class ScreenplayParser:
         try:
             # Try using screenplay-tools library
             import fountain
+            
+            # Patch the LOCALE bug if needed
+            self._patch_fountain_locale_bug()
             
             screenplay = fountain.Fountain(text)
             dialogue_entries = []
@@ -171,12 +203,13 @@ class ScreenplayParser:
                 logger.info(f"Parsed {len(dialogue_entries)} dialogue lines using fountain library")
                 return dialogue_entries
             else:
-                logger.warning("Fountain library returned no dialogue, falling back to manual parsing")
+                logger.info("Fountain library returned no dialogue, using manual parsing")
                 
         except ImportError:
-            logger.warning("screenplay-tools/fountain library not available, using manual Fountain parsing")
+            logger.info("screenplay-tools/fountain library not installed, using manual parsing")
         except Exception as e:
-            logger.warning(f"Fountain library parsing failed: {e}, falling back to manual parsing")
+            logger.info(f"Using manual Fountain parser (fountain library has Python 3.11+ compatibility issue)")
+            logger.debug(f"Fountain error details: {e}")
         
         # Fallback: Manual Fountain parsing
         return self._parse_fountain_manual(text)
