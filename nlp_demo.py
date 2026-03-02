@@ -127,7 +127,7 @@ class NLPDemo:
         character_data = {}
         
         for line in director_script:
-            char = line['character']
+            char = line['speaker']
             emotion = line['emotion']
             
             if char not in character_data:
@@ -159,7 +159,7 @@ class NLPDemo:
     def _create_statistics(self, director_script: List[Dict]) -> str:
         """Create overall statistics summary."""
         total_lines = len(director_script)
-        unique_characters = len(set(line['character'] for line in director_script))
+        unique_characters = len(set(line['speaker'] for line in director_script))
         unique_emotions = len(set(line['emotion'] for line in director_script))
         
         emotions = [line['emotion'] for line in director_script]
@@ -208,7 +208,7 @@ def create_interface():
     """Create Gradio interface for NLP demo."""
     demo = NLPDemo()
     
-    # Example screenplay
+    # Example screenplay in proper Fountain format
     example_screenplay = """INT. BLADE RUNNER HEADQUARTERS - NIGHT
 
 DECKARD enters the dimly lit office. GAFF sits behind a desk.
@@ -251,11 +251,16 @@ No choice at all.
                 analyze_btn = gr.Button("🔍 Analyze Screenplay", variant="primary")
                 
                 gr.Markdown("""
-                ### Example Format:
+                ### Fountain Format:
                 ```
+                INT. LOCATION - TIME
+                
                 CHARACTER NAME
-                (emotion)
+                (parenthetical)
                 Dialogue text here.
+                
+                CHARACTER NAME
+                More dialogue.
                 ```
                 """)
         
