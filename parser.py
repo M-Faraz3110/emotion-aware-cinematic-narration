@@ -53,6 +53,7 @@ class ScreenplayParser:
                 "speaker": str,
                 "line": str,
                 "parenthetical": str,
+                "scene_context": str,
                 "original_text": str
             }
             
@@ -222,22 +223,35 @@ class ScreenplayParser:
         1. ALL CAPS character name
         2. Optional parenthetical on next line
         3. Dialogue on subsequent lines until blank line or next element
+        4. Action lines for scene context
         
         Args:
             text: Fountain-formatted text
             
         Returns:
-            List of structured dialogue entries
+            List of structured dialogue entries with scene context
         """
         lines = text.split('\n')
         dialogue_entries = []
+        scene_context = []  # Track recent action lines for environmental mood
         i = 0
         
         while i < len(lines):
             line = lines[i].strip()
             
-            # Skip empty lines, scene headings, transitions, and action
-            if not line or self.FOUNTAIN_SCENE_HEADING.match(line) or self.FOUNTAIN_TRANSITION.match(line):
+            # Skip empty lines
+            if not line:
+                i += 1
+                continue
+            
+            # Scene headings update context but don't add to action lines
+            if self.FOUNTAIN_SCENE_HEADING.match(line):
+                scene_context = [line]  # Reset context with new scene
+                i += 1
+                continue
+            
+            # Skip transitions
+            if self.FOUNTAIN_TRANSITION.match(line):
                 i += 1
                 continue
             
@@ -246,12 +260,19 @@ class ScreenplayParser:
                 character = line.strip()
                 i += 1
                 
+                # Capture current scene context for this dialogue block
+                current_scene_context = " ".join(scene_context[-3:])  # Last 3 action lines
+                
                 # Look for parenthetical or dialogue on next lines
                 parenthetical = ""
                 dialogue_lines = []
                 
                 while i < len(lines):
                     next_line = lines[i].strip()
+                    
+                    # Empty line ends dialogue block (strict Fountain)
+                    if not next_line:
+                        break
                     
                     # Check if it's a parenthetical (wrapped in parens)
                     if next_line.startswith('(') and next_line.endswith(')'):
@@ -285,11 +306,18 @@ class ScreenplayParser:
                             "speaker": character.upper(),
                             "line": dialogue_text.strip(),
                             "parenthetical": parenthetical,
+                            "scene_context": current_scene_context,
                             "original_text": f"{character}: {dialogue_text.strip()}"
                         })
                         # Clear parenthetical after first line
                         parenthetical = ""
             else:
+                # This is an action line - add to scene context
+                # (Not a character name, scene heading, or transition)
+                scene_context.append(line)
+                # Keep only last 5 action lines to avoid too much context
+                if len(scene_context) > 5:
+                    scene_context = scene_context[-5:]
                 i += 1
         
         logger.info(f"Manual Fountain parsing extracted {len(dialogue_entries)} dialogue lines")
@@ -333,6 +361,7 @@ class ScreenplayParser:
                         "speaker": character,
                         "line": dialogue_text,
                         "parenthetical": parenthetical,
+                        "scene_context": "",
                         "original_text": line
                     })
         
@@ -382,6 +411,7 @@ class ScreenplayParser:
                         "speaker": "NARRATOR",
                         "line": current_sentence.strip(),
                         "parenthetical": "",
+                        "scene_context": "",
                         "original_text": current_sentence.strip()
                     })
                 current_sentence = ""
@@ -396,6 +426,7 @@ class ScreenplayParser:
                 "speaker": "NARRATOR",
                 "line": current_sentence.strip(),
                 "parenthetical": "",
+                "scene_context": "",
                 "original_text": current_sentence.strip()
             })
         
@@ -407,6 +438,7 @@ class ScreenplayParser:
                 "speaker": "NARRATOR",
                 "line": text,
                 "parenthetical": "",
+                "scene_context": "",
                 "original_text": text
             })
         

@@ -142,13 +142,14 @@ class NLPPipeline:
         all_dialogue: List[Dict]
     ) -> Tuple[str, float, float]:
         """
-        Analyze emotion and intensity using contextual awareness and dual inference.
+        Analyze emotion and intensity using contextual awareness and multi-source blending.
         
-        Strategy:
-        1. Run emotion model on target line alone (60% weight)
-        2. Run emotion model on context window (40% weight)
-        3. Blend the results
-        4. Extract intensity from sentiment model
+        Uses 50-30-20 blending strategy:
+        - 50% from the dialogue line itself
+        - 30% from surrounding dialogue context (±2 lines)
+        - 20% from scene context:
+          * 12% from parenthetical (direct delivery instruction)
+          * 8% from scene context (atmospheric mood)
         
         Args:
             dialogue_entry: Current dialogue entry
@@ -160,34 +161,60 @@ class NLPPipeline:
         """
         target_line = dialogue_entry['line']
         
-        # === Step 1: Analyze target line alone (60% weight) ===
+        # === Step 1: Analyze target line alone (50% weight) ===
         line_emotion_results = self.emotion_classifier(target_line)[0]
         line_emotion_scores = {r['label']: r['score'] for r in line_emotion_results}
         
-        # === Step 2: Analyze with context window (40% weight) ===
+        # === Step 2: Analyze surrounding dialogue context (30% weight) ===
         context_text = self._build_context_window(index, all_dialogue)
         context_emotion_results = self.emotion_classifier(context_text)[0]
         context_emotion_scores = {r['label']: r['score'] for r in context_emotion_results}
         
-        # === Step 3: Blend results (60% line + 40% context) ===
+        # === Step 3: Analyze parenthetical (12% weight) ===
+        parenthetical_scores = {}
+        if dialogue_entry.get('parenthetical'):
+            parenthetical_emotion = self._analyze_parenthetical_emotion(
+                target_line, dialogue_entry['parenthetical']
+            )
+            parenthetical_scores = parenthetical_emotion
+        else:
+            # No parenthetical - use line's own emotion
+            parenthetical_scores = line_emotion_scores
+        
+        # === Step 4: Analyze scene context (8% weight) ===
+        scene_scores = {}
+        if dialogue_entry.get('scene_context'):
+            scene_emotion_results = self.emotion_classifier(dialogue_entry['scene_context'])[0]
+            scene_scores = {r['label']: r['score'] for r in scene_emotion_results}
+        else:
+            # Neutral if no scene context
+            scene_scores = {emotion: 0.0 for emotion in config.EMOTION_LABELS}
+            scene_scores['neutral'] = 1.0
+        
+        # === Step 5: Blend all results (50% + 30% + 12% + 8% = 100%) ===
         blended_scores = {}
         for emotion in config.EMOTION_LABELS:
             line_score = line_emotion_scores.get(emotion, 0.0)
-            context_score = context_emotion_scores.get(emotion, 0.0)
+            dialogue_score = context_emotion_scores.get(emotion, 0.0)
+            paren_score = parenthetical_scores.get(emotion, 0.0)
+            scene_score = scene_scores.get(emotion, 0.0)
+            
             blended_scores[emotion] = (
-                config.LINE_WEIGHT * line_score + 
-                config.CONTEXT_WEIGHT * context_score
+                config.LINE_WEIGHT * line_score +
+                config.DIALOGUE_WEIGHT * dialogue_score +
+                config.PARENTHETICAL_WEIGHT * paren_score +
+                config.SCENE_WEIGHT * scene_score
             )
         
         # Get top emotion
         final_emotion = max(blended_scores, key=blended_scores.__getitem__)
         final_confidence = blended_scores[final_emotion]
         
-        # === Step 4: Extract intensity from sentiment ===
+        # === Step 6: Extract intensity from sentiment ===
         intensity = self._extract_intensity(target_line)
         
         # Apply parenthetical intensity modifiers
-        if dialogue_entry['parenthetical']:
+        if dialogue_entry.get('parenthetical'):
             intensity = self._apply_parenthetical_intensity_modifier(
                 intensity, dialogue_entry['parenthetical']
             )
@@ -216,6 +243,38 @@ class NLPPipeline:
             context_lines.append(f"{speaker}: {line}")
         
         return " ".join(context_lines)
+    
+    def _analyze_parenthetical_emotion(self, line: str, parenthetical: str) -> Dict[str, float]:
+        """
+        Extract emotion signals from parenthetical stage directions in context.
+        
+        Analyzes the parenthetical together with the dialogue line it modifies,
+        since stage directions like "(beat)" or "(quietly)" derive meaning from
+        the emotional context of the line they're attached to.
+        
+        Args:
+            line: The dialogue line being spoken
+            parenthetical: Stage direction text
+        
+        Returns:
+            Dictionary of emotion scores
+        """
+        # Analyze line + parenthetical together for contextual emotion
+        combined_text = f"{line} ({parenthetical})"
+        
+        try:
+            paren_emotion_results = self.emotion_classifier(combined_text)[0]
+            return {r['label']: r['score'] for r in paren_emotion_results}
+        except Exception as e:
+            logger.warning(f"Parenthetical emotion analysis failed: {e}")
+            # Fallback to line emotion only
+            try:
+                line_results = self.emotion_classifier(line)[0]
+                return {r['label']: r['score'] for r in line_results}
+            except:
+                # Last resort: neutral
+                return {emotion: 0.0 if emotion != 'neutral' else 1.0 
+                       for emotion in config.EMOTION_LABELS}
     
     def _extract_intensity(self, text: str) -> float:
         """

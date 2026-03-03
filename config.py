@@ -43,8 +43,12 @@ EMOTION_LABELS = ["joy", "anger", "fear", "sadness", "disgust", "surprise", "neu
 # Contextual Analysis
 CONTEXT_WINDOW_BEFORE = 2  # Number of lines before target
 CONTEXT_WINDOW_AFTER = 2   # Number of lines after target
-CONTEXT_WEIGHT = 0.4       # 40% weight for context
-LINE_WEIGHT = 0.6          # 60% weight for target line itself
+
+# Emotion blending weights (50-30-20 strategy)
+LINE_WEIGHT = 0.5          # 50% weight for target line itself
+DIALOGUE_WEIGHT = 0.3      # 30% weight for surrounding dialogue context
+PARENTHETICAL_WEIGHT = 0.12  # 12% weight for parenthetical (direct delivery instruction)
+SCENE_WEIGHT = 0.08        # 8% weight for scene context (atmospheric mood)
 
 # Intensity thresholds
 INTENSITY_HIGH_THRESHOLD = 0.8    # High emotion intensity
