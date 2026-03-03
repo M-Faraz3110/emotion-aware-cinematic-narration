@@ -144,11 +144,11 @@ class NLPPipeline:
         """
         Analyze emotion and intensity using contextual awareness and multi-source blending.
         
-        Uses atmospheric-aware blending (40-25-15-20):
-        - 40% from the dialogue line itself
-        - 25% from surrounding dialogue context (±2 lines)
+        Uses context-dominant blending (25-30-15-30):
+        - 25% from the dialogue line itself
+        - 30% from surrounding dialogue context (±2 lines)
         - 15% from parenthetical (direct delivery instruction)
-        - 20% from scene context (atmospheric mood)
+        - 30% from scene context (atmospheric mood)
         
         Args:
             dialogue_entry: Current dialogue entry
@@ -190,7 +190,7 @@ class NLPPipeline:
             scene_scores = {emotion: 0.0 for emotion in config.EMOTION_LABELS}
             scene_scores['neutral'] = 1.0
         
-        # === Step 5: Blend all results (40% + 25% + 15% + 20% = 100%) ===
+        # === Step 5: Blend all results (25% + 30% + 15% + 30% = 100%) ===
         blended_scores = {}
         for emotion in config.EMOTION_LABELS:
             line_score = line_emotion_scores.get(emotion, 0.0)
