@@ -80,9 +80,9 @@ class VoiceDemo:
             emotions = ['joy', 'anger', 'sadness', 'fear', 'surprise', 'disgust', 'neutral']
             audio_outputs = []
             
-            for emotion in emotions:
+            for idx, emotion in enumerate(emotions, start=1):
                 director_script = [{
-                    'line_number': 1,
+                    'line_number': idx,  # Use unique line number to avoid overwriting temp files
                     'speaker': 'SPEAKER',
                     'line': text,
                     'emotion': emotion,
@@ -127,9 +127,9 @@ class VoiceDemo:
             paces = [config.PACE_SLOW, config.PACE_NORMAL, config.PACE_FAST]
             audio_outputs = []
             
-            for pace in paces:
+            for idx, pace in enumerate(paces, start=1):
                 director_script = [{
-                    'line_number': 1,
+                    'line_number': idx,  # Use unique line number to avoid overwriting temp files
                     'speaker': 'SPEAKER',
                     'line': text,
                     'emotion': emotion,
