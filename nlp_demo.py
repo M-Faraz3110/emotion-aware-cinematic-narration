@@ -207,7 +207,7 @@ class NLPDemo:
     def _create_line_breakdown(self, director_script: List[Dict]) -> str:
         """Create line-by-line breakdown with all NLP analysis details."""
         breakdown = "# Line-by-Line Analysis\n\n"
-        breakdown += "*Shows how emotion is analyzed using 50-30-20 blending: 50% from line, 30% from dialogue context, 20% from scene context (12% parenthetical + 8% atmospheric)*\n\n"
+        breakdown += "*Shows how emotion is analyzed using atmospheric-aware blending: 40% from line, 25% from dialogue context, 15% from parenthetical, 20% from atmospheric scene context*\n\n"
         
         for line_data in director_script:
             breakdown += f"---\n\n"
@@ -216,11 +216,11 @@ class NLPDemo:
             
             # Show parenthetical if present
             if line_data.get('parenthetical'):
-                breakdown += f"*Parenthetical: ({line_data['parenthetical']})* — 12% emotion weight\n\n"
+                breakdown += f"*Parenthetical: ({line_data['parenthetical']})* — 15% emotion weight\n\n"
             
             # Show scene context if present
             if line_data.get('scene_context'):
-                breakdown += f"*Scene Context: {line_data['scene_context'][:100]}{'...' if len(line_data['scene_context']) > 100 else ''}* — 8% emotion weight\n\n"
+                breakdown += f"*Scene Context: {line_data['scene_context'][:100]}{'...' if len(line_data['scene_context']) > 100 else ''}* — 20% emotion weight\n\n"
             
             # Emotion analysis results
             breakdown += f"- **Emotion:** {line_data['emotion']} (confidence: {line_data['emotion_confidence']:.2%})\n"
