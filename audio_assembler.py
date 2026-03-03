@@ -77,15 +77,18 @@ class AudioAssembler:
                 f"Adding line {line_num} with {pause_before:.2f}s pause "
                 f"({i+1}/{len(rendered_audio_files)})"
             )
+            print(f"  📎 Assembling line {line_num}: pause={pause_before:.2f}s, path={audio_path}")
             
             try:
                 # Load audio segment
                 audio_segment = AudioSegment.from_wav(audio_path)
+                print(f"     Loaded audio: {len(audio_segment)}ms duration")
                 
                 # Add pause before this line
                 if pause_before > 0:
                     pause_ms = int(pause_before * 1000)
                     silence = AudioSegment.silent(duration=pause_ms)
+                    print(f"     Adding {pause_ms}ms pause")
                     
                     if len(final_audio) > 0 and config.FADE_DURATION_MS > 0:
                         # Crossfade: fade out previous segment + fade in current with silence
@@ -94,9 +97,11 @@ class AudioAssembler:
                             silence + audio_segment,
                             config.FADE_DURATION_MS
                         )
+                        print(f"     Crossfaded. Total duration now: {len(final_audio)}ms")
                     else:
                         # First segment or no crossfade - just concatenate
                         final_audio += silence + audio_segment
+                        print(f"     Concatenated. Total duration now: {len(final_audio)}ms")
                 else:
                     # No pause - direct crossfade if not first segment
                     if len(final_audio) > 0 and config.FADE_DURATION_MS > 0:
@@ -105,16 +110,21 @@ class AudioAssembler:
                             audio_segment,
                             config.FADE_DURATION_MS
                         )
+                        print(f"     Crossfaded (no pause). Total duration now: {len(final_audio)}ms")
                     else:
                         final_audio += audio_segment
+                        print(f"     Concatenated (first segment). Total duration now: {len(final_audio)}ms")
                 
             except Exception as e:
                 logger.error(f"Failed to add line {line_num}: {e}")
+                print(f"     ✗ ERROR adding line {line_num}: {e}")
                 # Continue with next segment
                 continue
         
         if len(final_audio) == 0:
             raise RuntimeError("Assembly failed: no audio segments were added")
+        
+        print(f"  ✓ Assembly complete: {len(final_audio)}ms ({len(final_audio)/1000:.1f}s) total duration")
         
         # Normalize final audio
         logger.info("Normalizing final audio...")
