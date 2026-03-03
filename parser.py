@@ -253,10 +253,6 @@ class ScreenplayParser:
                 while i < len(lines):
                     next_line = lines[i].strip()
                     
-                    # Empty line ends dialogue block
-                    if not next_line:
-                        break
-                    
                     # Check if it's a parenthetical (wrapped in parens)
                     if next_line.startswith('(') and next_line.endswith(')'):
                         parenthetical = next_line.strip('()')
@@ -269,28 +265,30 @@ class ScreenplayParser:
                         self.FOUNTAIN_TRANSITION.match(next_line)):
                         break
                     
-                    # It's dialogue
-                    dialogue_lines.append(next_line)
+                    # It's dialogue - add as separate line
+                    if next_line:  # Only non-empty lines
+                        dialogue_lines.append(next_line)
                     i += 1
                 
-                # Create entry if we found dialogue
-                if dialogue_lines:
-                    dialogue_text = ' '.join(dialogue_lines)
-                    
+                # Create separate entry for each dialogue line
+                for dialogue_text in dialogue_lines:
                     # Check for inline parentheticals
                     paren_match = self.PARENTHETICAL.match(dialogue_text)
                     if paren_match and not parenthetical:
                         parenthetical = paren_match.group(1)
                         dialogue_text = dialogue_text[paren_match.end():].strip()
                     
-                    self.line_counter += 1
-                    dialogue_entries.append({
-                        "line_number": self.line_counter,
-                        "speaker": character.upper(),
-                        "line": dialogue_text,
-                        "parenthetical": parenthetical,
-                        "original_text": f"{character}: {dialogue_text}"
-                    })
+                    if dialogue_text.strip():
+                        self.line_counter += 1
+                        dialogue_entries.append({
+                            "line_number": self.line_counter,
+                            "speaker": character.upper(),
+                            "line": dialogue_text.strip(),
+                            "parenthetical": parenthetical,
+                            "original_text": f"{character}: {dialogue_text.strip()}"
+                        })
+                        # Clear parenthetical after first line
+                        parenthetical = ""
             else:
                 i += 1
         
