@@ -263,9 +263,10 @@ class ScreenplayParser:
                 # Capture current scene context for this dialogue block
                 current_scene_context = " ".join(scene_context[-3:])  # Last 3 action lines
                 
-                # Look for parenthetical or dialogue on next lines
-                parenthetical = ""
-                dialogue_lines = []
+                # Collect dialogue lines with their parentheticals
+                # Each entry is (dialogue_text, parenthetical)
+                dialogue_with_parens = []
+                pending_parenthetical = ""
                 
                 while i < len(lines):
                     next_line = lines[i].strip()
@@ -276,7 +277,8 @@ class ScreenplayParser:
                     
                     # Check if it's a parenthetical (wrapped in parens)
                     if next_line.startswith('(') and next_line.endswith(')'):
-                        parenthetical = next_line.strip('()')
+                        # Store parenthetical for the NEXT dialogue line
+                        pending_parenthetical = next_line.strip('()')
                         i += 1
                         continue
                     
@@ -286,19 +288,23 @@ class ScreenplayParser:
                         self.FOUNTAIN_TRANSITION.match(next_line)):
                         break
                     
-                    # It's dialogue - add as separate line
-                    if next_line:  # Only non-empty lines
-                        dialogue_lines.append(next_line)
+                    # It's dialogue - check for inline parenthetical first
+                    inline_paren_match = self.PARENTHETICAL.match(next_line)
+                    if inline_paren_match:
+                        # Inline parenthetical takes precedence
+                        paren = inline_paren_match.group(1)
+                        dialogue_text = next_line[inline_paren_match.end():].strip()
+                        dialogue_with_parens.append((dialogue_text, paren))
+                        pending_parenthetical = ""  # Clear pending
+                    elif next_line:
+                        # Use pending parenthetical if any
+                        dialogue_with_parens.append((next_line, pending_parenthetical))
+                        pending_parenthetical = ""  # Clear after use
+                    
                     i += 1
                 
                 # Create separate entry for each dialogue line
-                for dialogue_text in dialogue_lines:
-                    # Check for inline parentheticals
-                    paren_match = self.PARENTHETICAL.match(dialogue_text)
-                    if paren_match and not parenthetical:
-                        parenthetical = paren_match.group(1)
-                        dialogue_text = dialogue_text[paren_match.end():].strip()
-                    
+                for dialogue_text, parenthetical in dialogue_with_parens:
                     if dialogue_text.strip():
                         self.line_counter += 1
                         dialogue_entries.append({
@@ -309,8 +315,6 @@ class ScreenplayParser:
                             "scene_context": current_scene_context,
                             "original_text": f"{character}: {dialogue_text.strip()}"
                         })
-                        # Clear parenthetical after first line
-                        parenthetical = ""
             else:
                 # This is an action line - add to scene context
                 # (Not a character name, scene heading, or transition)
