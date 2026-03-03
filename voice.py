@@ -219,6 +219,7 @@ class VoicePipeline:
                 
                 # Apply emotional prosody modifications (pitch + energy)
                 emotion = entry.get('emotion', 'neutral')
+                print(f"📊 Processing line {line_num}: emotion={emotion}, pace={pace}")
                 audio = self._apply_emotional_prosody(audio, emotion)
                 
                 # Apply pace control via time-stretching
@@ -228,7 +229,7 @@ class VoicePipeline:
                 sf.write(temp_audio_path, audio, config.SAMPLE_RATE)
                 
                 rendered_audio_files.append((temp_audio_path, entry))
-                logger.info(f"  ✓ Line {line_num} rendered: emotion={emotion}, pace={pace}")
+                print(f"  ✓ Line {line_num} complete!\n")
                 
             except Exception as e:
                 logger.error(f"  ✗ Failed to render line {line_num}: {e}")
@@ -254,21 +255,27 @@ class VoicePipeline:
         Returns:
             Prosody-modified audio samples
         """
+        print(f"  🎵 Applying emotional prosody for: {emotion}")
+        
         # Step 1: Pitch shifting
         pitch_shift = config.EMOTION_PITCH_SHIFTS.get(emotion, 0.0)
         if pitch_shift != 0.0:
+            print(f"    → Pitch shift: {pitch_shift:+.1f} semitones")
             audio = librosa.effects.pitch_shift(
                 audio, 
                 sr=config.SAMPLE_RATE, 
                 n_steps=pitch_shift
             )
-            logger.info(f"  Applied pitch shift: {pitch_shift:+.1f} semitones")
+        else:
+            print(f"    → No pitch shift (neutral)")
         
         # Step 2: Energy modulation (volume)
         energy_mod = config.EMOTION_ENERGY_MODS.get(emotion, 1.0)
         if energy_mod != 1.0:
+            print(f"    → Energy modulation: {energy_mod:.2f}x volume")
             audio = audio * energy_mod
-            logger.info(f"  Applied energy modulation: {energy_mod:.2f}x")
+        else:
+            print(f"    → No energy modulation (neutral)")
         
         # Step 3: Normalize to prevent clipping
         audio = librosa.util.normalize(audio) * 0.95  # Leave 5% headroom
