@@ -95,13 +95,16 @@ class NLPPipeline:
         
         for i, dialogue_entry in enumerate(parsed_dialogue):
             # Extract contextual emotion and intensity
-            emotion, emotion_confidence, intensity = self._analyze_emotion_and_intensity(
+            emotion, emotion_confidence, intensity, emotion_blend = self._analyze_emotion_and_intensity(
                 dialogue_entry, i, parsed_dialogue
             )
             
+            # Build context window for display
+            dialogue_context = self._build_context_window(i, parsed_dialogue)
+            
             # Infer pace and pause
             pace_score = self._infer_pace(
-                dialogue_entry, emotion, intensity
+                dialogue_entry, emotion, intensity, emotion_blend
             )
             
             pause_before = self._calculate_pause(
@@ -116,10 +119,12 @@ class NLPPipeline:
                 **dialogue_entry,  # Keep all original fields
                 "emotion": emotion,
                 "emotion_confidence": round(emotion_confidence, 3),
+                "emotion_blend": emotion_blend,  # Multi-emotion breakdown
                 "intensity": round(intensity, 3),
                 "pace": pace,
                 "pace_score": round(pace_score, 3),  # Keep for debugging
-                "pause_before": round(pause_before, 2)
+                "pause_before": round(pause_before, 2),
+                "dialogue_context": dialogue_context  # Add for UI display
             }
             
             director_script.append(enriched_entry)
@@ -140,7 +145,7 @@ class NLPPipeline:
         dialogue_entry: Dict, 
         index: int, 
         all_dialogue: List[Dict]
-    ) -> Tuple[str, float, float]:
+    ) -> Tuple[str, float, float, List[Dict]]:
         """
         Analyze emotion and intensity using contextual awareness and multi-source blending.
         
@@ -150,13 +155,16 @@ class NLPPipeline:
         - 15% from parenthetical (direct delivery instruction)
         - 30% from scene context (atmospheric mood)
         
+        Returns multi-emotion blend instead of single emotion for nuanced analysis.
+        
         Args:
             dialogue_entry: Current dialogue entry
             index: Index in all_dialogue
             all_dialogue: Full dialogue list for context
         
         Returns:
-            Tuple of (emotion_label, confidence, intensity)
+            Tuple of (dominant_emotion, confidence, intensity, emotion_blend)
+            where emotion_blend is list of dicts: [{"emotion": str, "score": float}]
         """
         target_line = dialogue_entry['line']
         
@@ -205,9 +213,21 @@ class NLPPipeline:
                 config.SCENE_WEIGHT * scene_score
             )
         
-        # Get top emotion
-        final_emotion = max(blended_scores, key=blended_scores.__getitem__)
-        final_confidence = blended_scores[final_emotion]
+        # Sort emotions by score to get top N
+        sorted_emotions = sorted(blended_scores.items(), key=lambda x: x[1], reverse=True)
+        
+        # Build emotion blend: keep top N emotions above minimum threshold
+        emotion_blend = []
+        for emotion, score in sorted_emotions[:config.EMOTION_BLEND_TOP_N]:
+            if score >= config.EMOTION_BLEND_MIN_SCORE:
+                emotion_blend.append({
+                    "emotion": emotion,
+                    "score": score
+                })
+        
+        # Dominant emotion (for backward compatibility and voice synthesis)
+        final_emotion = sorted_emotions[0][0]
+        final_confidence = sorted_emotions[0][1]
         
         # === Step 6: Extract intensity from sentiment ===
         intensity = self._extract_intensity(target_line)
@@ -218,7 +238,7 @@ class NLPPipeline:
                 intensity, dialogue_entry['parenthetical']
             )
         
-        return final_emotion, final_confidence, intensity
+        return final_emotion, final_confidence, intensity, emotion_blend
     
     def _build_context_window(self, index: int, all_dialogue: List[Dict]) -> str:
         """
@@ -321,21 +341,23 @@ class NLPPipeline:
         self, 
         dialogue_entry: Dict, 
         emotion: str, 
-        intensity: float
+        intensity: float,
+        emotion_blend: List[Dict]
     ) -> float:
         """
-        Infer speaking pace using multiple signals.
+        Infer speaking pace using multiple signals with multi-emotion blending.
         
         Signals considered:
         1. Parenthetical override (e.g., "quickly", "slowly")
         2. Punctuation patterns (!, ?, ...)
-        3. Emotion type (fear/anger = faster, sadness = slower)
+        3. Multi-emotion weighted pacing (uses emotion_blend)
         4. Intensity scaling
         
         Args:
             dialogue_entry: Current dialogue entry
-            emotion: Detected emotion
+            emotion: Dominant emotion (for backward compatibility)
             intensity: Emotion intensity
+            emotion_blend: List of emotion dictionaries with scores
         
         Returns:
             Pace score (negative = slower, positive = faster, 0 = normal)
@@ -367,13 +389,13 @@ class NLPPipeline:
         if '—' in line or '--' in line:
             pace_score += 0.1  # Em dash = slight urgency
         
-        # === Signal 3: Emotion-based pacing ===
-        if emotion in ['anger', 'fear']:
-            pace_score += 0.2  # High-energy emotions = faster
-        elif emotion in ['sadness', 'disgust']:
-            pace_score -= 0.2  # Low-energy emotions = slower
-        elif emotion == 'surprise':
-            pace_score += 0.1  # Mild increase
+        # === Signal 3: Multi-emotion weighted pacing ===
+        # Blend pace contributions from all emotions in emotion_blend
+        for emotion_entry in emotion_blend:
+            emotion_name = emotion_entry['emotion']
+            emotion_score = emotion_entry['score']
+            contribution = config.EMOTION_PACE_CONTRIBUTIONS.get(emotion_name, 0.0)
+            pace_score += contribution * emotion_score
         
         # === Signal 4: Intensity scaling ===
         # High intensity = more pronounced (amplify current direction)

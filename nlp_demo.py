@@ -207,23 +207,47 @@ class NLPDemo:
     def _create_line_breakdown(self, director_script: List[Dict]) -> str:
         """Create line-by-line breakdown with all NLP analysis details."""
         breakdown = "# Line-by-Line Analysis\n\n"
-        breakdown += "*Shows how emotion is analyzed using context-dominant blending: 25% from line, 30% from dialogue context, 15% from parenthetical, 30% from atmospheric scene context*\n\n"
+        breakdown += "*Shows how emotion is analyzed using context-dominant blending (25% line + 30% dialogue + 15% parenthetical + 30% scene) with multi-emotion output for nuanced results.*\n\n"
         
         for line_data in director_script:
             breakdown += f"---\n\n"
             breakdown += f"**Line {line_data['line_number']}** - {line_data['speaker']}\n\n"
+            
+            # 1. Show the dialogue line itself (25% weight)
+            breakdown += f"**Dialogue Line** — 25% emotion weight\n"
             breakdown += f"> {line_data['line']}\n\n"
             
-            # Show parenthetical if present
+            # 2. Show dialogue context if present (30% weight)
+            if line_data.get('dialogue_context'):
+                context_preview = line_data['dialogue_context'][:150]
+                if len(line_data['dialogue_context']) > 150:
+                    context_preview += '...'
+                breakdown += f"**Dialogue Context** (surrounding ±2 lines) — 30% emotion weight\n"
+                breakdown += f"> {context_preview}\n\n"
+            
+            # 3. Show parenthetical if present (15% weight)
             if line_data.get('parenthetical'):
-                breakdown += f"*Parenthetical: ({line_data['parenthetical']})* — 15% emotion weight\n\n"
+                breakdown += f"**Parenthetical** — 15% emotion weight\n"
+                breakdown += f"> ({line_data['parenthetical']})\n\n"
             
-            # Show scene context if present
+            # 4. Show scene context if present (30% weight)
             if line_data.get('scene_context'):
-                breakdown += f"*Scene Context: {line_data['scene_context'][:100]}{'...' if len(line_data['scene_context']) > 100 else ''}* — 30% emotion weight\n\n"
+                scene_preview = line_data['scene_context'][:120]
+                if len(line_data['scene_context']) > 120:
+                    scene_preview += '...'
+                breakdown += f"**Scene Context** (atmospheric mood) — 30% emotion weight\n"
+                breakdown += f"> {scene_preview}\n\n"
             
-            # Emotion analysis results
-            breakdown += f"- **Emotion:** {line_data['emotion']} (confidence: {line_data['emotion_confidence']:.2%})\n"
+            # Final emotion analysis results
+            breakdown += f"**Final Analysis:**\n"
+            
+            # Show emotion blend (multi-emotion)
+            if line_data.get('emotion_blend'):
+                breakdown += f"- **Emotion Blend:** "
+                blend_strs = [f"{e['emotion']} ({e['score']:.1%})" for e in line_data['emotion_blend']]
+                breakdown += ", ".join(blend_strs) + "\n"
+            
+            breakdown += f"- **Dominant Emotion:** {line_data['emotion']} (confidence: {line_data['emotion_confidence']:.2%})\n"
             breakdown += f"- **Intensity:** {line_data['intensity']:.3f}\n"
             breakdown += f"- **Pace:** {line_data['pace']} (score: {line_data['pace_score']:.3f})\n"
             breakdown += f"- **Pause Before:** {line_data['pause_before']:.2f}s\n\n"

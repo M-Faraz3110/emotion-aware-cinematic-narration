@@ -40,6 +40,10 @@ TTS_MODEL = "tts_models/multilingual/multi-dataset/xtts_v2"
 # Emotion Analysis
 EMOTION_LABELS = ["joy", "anger", "fear", "sadness", "disgust", "surprise", "neutral"]
 
+# Multi-emotion blending
+EMOTION_BLEND_TOP_N = 3           # Keep top N emotions in blend
+EMOTION_BLEND_MIN_SCORE = 0.10    # Minimum score to include in blend (10%)
+
 # Contextual Analysis
 CONTEXT_WINDOW_BEFORE = 2  # Number of lines before target
 CONTEXT_WINDOW_AFTER = 2   # Number of lines after target
@@ -62,6 +66,18 @@ INTENSITY_LOW_THRESHOLD = 0.3     # Low emotion intensity
 PACE_SLOW = "slow"
 PACE_NORMAL = "normal"
 PACE_FAST = "fast"
+
+# Emotion pace contributions (used for multi-emotion weighted pacing)
+# Positive = faster, Negative = slower, 0 = neutral
+EMOTION_PACE_CONTRIBUTIONS = {
+    'anger': 0.2,      # High-energy, fast
+    'fear': 0.2,       # High-energy, fast
+    'joy': 0.15,       # Energetic, slightly fast
+    'surprise': 0.1,   # Mild increase
+    'neutral': 0.0,    # No change
+    'sadness': -0.2,   # Low-energy, slow
+    'disgust': -0.2,   # Low-energy, slow
+}
 
 # Base pause values (in seconds)
 BASE_PAUSE = 0.3
