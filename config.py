@@ -160,6 +160,29 @@ XTTS_PACE_MULTIPLIERS = {
     PACE_FAST: 1.15,    # 15% faster
 }
 
+# Emotional prosody modulation (post-processing)
+# Pitch shifts in semitones (positive = higher, negative = lower)
+EMOTION_PITCH_SHIFTS = {
+    'joy': 2.5,         # Brighter, uplifted
+    'surprise': 3.0,    # High-pitched, startled
+    'fear': 3.5,        # Strained, tense
+    'anger': 1.0,       # Slightly raised, aggressive
+    'sadness': -2.5,    # Lower, subdued
+    'disgust': -2.0,    # Darker tone
+    'neutral': 0.0,     # No change
+}
+
+# Energy modulation multipliers (volume adjustment)
+EMOTION_ENERGY_MODS = {
+    'joy': 1.10,        # 10% louder, energetic
+    'anger': 1.20,      # 20% louder, forceful
+    'fear': 1.15,       # 15% louder, intense
+    'surprise': 1.10,   # 10% louder, expressive
+    'sadness': 0.85,    # 15% quieter, subdued
+    'disgust': 0.88,    # 12% quieter, withdrawn
+    'neutral': 1.0,     # No change
+}
+
 # Audio processing
 SAMPLE_RATE = 22050  # Target sample rate for TTS
 AUDIO_FORMAT = "wav"

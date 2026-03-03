@@ -214,14 +214,21 @@ class VoicePipeline:
                     language=language
                 )
                 
-                # Apply pace control via time-stretching
-                audio_paced = self._apply_pace_control(temp_audio_path, pace)
+                # Load generated audio
+                audio, sr = librosa.load(temp_audio_path, sr=config.SAMPLE_RATE)
                 
-                # Overwrite with paced audio
-                sf.write(temp_audio_path, audio_paced, config.SAMPLE_RATE)
+                # Apply emotional prosody modifications (pitch + energy)
+                emotion = entry.get('emotion', 'neutral')
+                audio = self._apply_emotional_prosody(audio, emotion)
+                
+                # Apply pace control via time-stretching
+                audio = self._apply_pace_control(audio, pace)
+                
+                # Save processed audio
+                sf.write(temp_audio_path, audio, config.SAMPLE_RATE)
                 
                 rendered_audio_files.append((temp_audio_path, entry))
-                logger.info(f"  ✓ Line {line_num} rendered with pace={pace}")
+                logger.info(f"  ✓ Line {line_num} rendered: emotion={emotion}, pace={pace}")
                 
             except Exception as e:
                 logger.error(f"  ✗ Failed to render line {line_num}: {e}")
@@ -233,7 +240,42 @@ class VoicePipeline:
         logger.info(f"✓ Rendering complete: {len(rendered_audio_files)} audio files")
         return rendered_audio_files
     
-    def _apply_pace_control(self, audio_path: str, pace: str) -> np.ndarray:
+    def _apply_emotional_prosody(self, audio: np.ndarray, emotion: str) -> np.ndarray:
+        """
+        Apply emotional prosody modifications (pitch and energy).
+        
+        Modulates pitch and volume based on emotion to create more
+        emotionally expressive speech without needing multiple voice samples.
+        
+        Args:
+            audio: Audio samples
+            emotion: Emotion category
+        
+        Returns:
+            Prosody-modified audio samples
+        """
+        # Step 1: Pitch shifting
+        pitch_shift = config.EMOTION_PITCH_SHIFTS.get(emotion, 0.0)
+        if pitch_shift != 0.0:
+            audio = librosa.effects.pitch_shift(
+                audio, 
+                sr=config.SAMPLE_RATE, 
+                n_steps=pitch_shift
+            )
+            logger.info(f"  Applied pitch shift: {pitch_shift:+.1f} semitones")
+        
+        # Step 2: Energy modulation (volume)
+        energy_mod = config.EMOTION_ENERGY_MODS.get(emotion, 1.0)
+        if energy_mod != 1.0:
+            audio = audio * energy_mod
+            logger.info(f"  Applied energy modulation: {energy_mod:.2f}x")
+        
+        # Step 3: Normalize to prevent clipping
+        audio = librosa.util.normalize(audio) * 0.95  # Leave 5% headroom
+        
+        return audio
+    
+    def _apply_pace_control(self, audio: np.ndarray, pace: str) -> np.ndarray:
         """
         Apply pace control via time-stretching.
         
@@ -241,15 +283,12 @@ class VoicePipeline:
         while preserving pitch.
         
         Args:
-            audio_path: Path to audio file
+            audio: Audio samples
             pace: Pace category ("slow", "normal", "fast")
         
         Returns:
             Time-stretched audio samples
         """
-        # Load audio
-        audio, sr = librosa.load(audio_path, sr=config.SAMPLE_RATE)
-        
         # Get pace multiplier from config
         rate = config.XTTS_PACE_MULTIPLIERS.get(pace, 1.0)
         
