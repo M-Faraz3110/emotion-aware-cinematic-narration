@@ -13,6 +13,7 @@ This module provides:
 import os
 import json
 import logging
+import tempfile
 from datetime import datetime
 from typing import Optional, Tuple
 import gradio as gr
@@ -22,7 +23,6 @@ from nlp import NLPPipeline
 from voice import VoicePipeline
 from audio_assembler import assemble_narration
 import config
-import utils
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -88,7 +88,6 @@ def process_narration(
     format_hint: str,
     context_window_before: int,
     context_window_after: int,
-    output_path: str,
     progress=gr.Progress()
 ) -> Tuple[Optional[str], str, str, str]:
     """
@@ -100,7 +99,6 @@ def process_narration(
         format_hint: Format type ("Auto-detect", "Fountain", "Plain Dialogue")
         context_window_before: Number of context lines before target
         context_window_after: Number of context lines after target
-        output_path: Directory to save output files
         progress: Gradio progress tracker
     
     Returns:
@@ -215,9 +213,10 @@ def process_narration(
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_filename = f"narration_{timestamp}.wav"
         
+        # Assemble to temp directory (like voice_demo.py)
         final_audio_path = assemble_narration(
             rendered_audio_files,
-            output_path,
+            tempfile.gettempdir(),
             output_filename,
             cleanup=not config.DEBUG_SAVE_INTERMEDIATE_AUDIO
         )
@@ -230,9 +229,11 @@ def process_narration(
         
         director_script_json = json.dumps(director_script, indent=2, ensure_ascii=False)
         
-        # Save Director's Script to file
+        # Save Director's Script to temp
         script_filename = f"director_script_{timestamp}.json"
-        utils.save_director_script(director_script, output_path, script_filename)
+        script_path = os.path.join(tempfile.gettempdir(), script_filename)
+        with open(script_path, 'w', encoding='utf-8') as f:
+            f.write(director_script_json)
         
         log_status(f"✓ Director's Script saved: {script_filename}")
         
@@ -256,20 +257,13 @@ def process_narration(
         return None, "", "\n".join(status_log), error_msg
 
 
-def create_gradio_interface(output_path: Optional[str] = None) -> gr.Blocks:
+def create_gradio_interface() -> gr.Blocks:
     """
     Create the Gradio web interface.
-    
-    Args:
-        output_path: Directory to save output files (uses config default if None)
     
     Returns:
         Gradio Blocks interface
     """
-    if output_path is None:
-        # Use environment-specific output path
-        env_info = utils.setup_environment()
-        output_path = env_info['output_path']
     
     # Custom CSS for better styling
     custom_css = """
@@ -425,7 +419,7 @@ def create_gradio_interface(output_path: Optional[str] = None) -> gr.Blocks:
         
         # Main generation
         generate_btn.click(
-            fn=lambda *args: process_narration(*args, output_path=output_path),
+            fn=process_narration,
             inputs=[
                 voice_input,
                 screenplay_input,
