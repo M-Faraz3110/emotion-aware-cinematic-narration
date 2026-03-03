@@ -82,8 +82,9 @@ class VoiceDemo:
             
             for emotion in emotions:
                 director_script = [{
-                    'character': 'SPEAKER',
-                    'dialogue': text,
+                    'line_number': 1,
+                    'speaker': 'SPEAKER',
+                    'line': text,
                     'emotion': emotion,
                     'pace': config.PACE_NORMAL
                 }]
@@ -128,8 +129,9 @@ class VoiceDemo:
             
             for pace in paces:
                 director_script = [{
-                    'character': 'SPEAKER',
-                    'dialogue': text,
+                    'line_number': 1,
+                    'speaker': 'SPEAKER',
+                    'line': text,
                     'emotion': emotion,
                     'pace': pace
                 }]
@@ -172,8 +174,9 @@ class VoiceDemo:
         
         try:
             director_script = [{
-                'character': 'SPEAKER',
-                'dialogue': text,
+                'line_number': 1,
+                'speaker': 'SPEAKER',
+                'line': text,
                 'emotion': emotion,
                 'pace': pace
             }]
