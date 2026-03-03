@@ -162,13 +162,14 @@ XTTS_PACE_MULTIPLIERS = {
 
 # Emotional prosody modulation (post-processing)
 # Pitch shifts in semitones (positive = higher, negative = lower)
+# Keep very subtle to avoid robotic artifacts
 EMOTION_PITCH_SHIFTS = {
-    'joy': 1.5,         # Bright, uplifted, cheerful
-    'surprise': 2.0,    # Higher pitched, startled
-    'fear': 2.5,        # High, strained, tense
-    'anger': -0.8,      # Slightly lower, gruff, threatening
-    'sadness': -1.5,    # Lower, subdued, melancholic
-    'disgust': -1.0,    # Slightly lower, contemptuous
+    'joy': 0.5,         # Very slightly brighter
+    'surprise': 0.8,    # Slightly higher pitched
+    'fear': 0.8,        # Slightly tense
+    'anger': -0.3,      # Very slightly gruff
+    'sadness': -0.5,    # Slightly subdued
+    'disgust': -0.3,    # Slightly lower
     'neutral': 0.0,     # No change
 }
 
