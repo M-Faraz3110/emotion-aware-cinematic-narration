@@ -170,14 +170,19 @@ class AudioAssembler:
             # No crossfade possible
             return segment1 + segment2
         
-        # Fade out last part of segment1
-        segment1_faded = segment1.fade_out(duration=fade_duration_ms)
+        # Split segment1 into non-faded and faded parts
+        segment1_before_fade = segment1[:-fade_duration_ms]
+        segment1_fade_part = segment1[-fade_duration_ms:].fade_out(duration=fade_duration_ms)
         
-        # Fade in first part of segment2
-        segment2_faded = segment2.fade_in(duration=fade_duration_ms)
+        # Split segment2 into faded and non-faded parts
+        segment2_fade_part = segment2[:fade_duration_ms].fade_in(duration=fade_duration_ms)
+        segment2_after_fade = segment2[fade_duration_ms:]
         
         # Overlay the faded portions
-        combined = segment1_faded.overlay(segment2_faded, position=len(segment1_faded) - fade_duration_ms)
+        crossfaded = segment1_fade_part.overlay(segment2_fade_part)
+        
+        # Concatenate: non-faded segment1 + crossfaded part + non-faded segment2
+        combined = segment1_before_fade + crossfaded + segment2_after_fade
         
         return combined
     
