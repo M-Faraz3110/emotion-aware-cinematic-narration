@@ -25,7 +25,7 @@ class VoiceDemo:
         Clone voice from uploaded sample.
         
         Args:
-            voice_file: Uploaded voice sample
+            voice_file: Uploaded voice sample (can be dict, str, or file object)
             
         Returns:
             Status message
@@ -34,7 +34,19 @@ class VoiceDemo:
             return "❌ Please upload a voice sample first"
         
         try:
-            success = self.voice_pipeline.clone_voice(voice_file.name)
+            # Handle different Gradio audio input formats
+            if isinstance(voice_file, dict):
+                voice_path = voice_file.get('name') or voice_file.get('path')
+            elif isinstance(voice_file, str):
+                voice_path = voice_file
+            else:
+                # Fallback for file objects
+                voice_path = voice_file
+            
+            if not voice_path:
+                return "❌ Could not extract voice sample path"
+            
+            success = self.voice_pipeline.clone_voice(voice_path)
             
             if success:
                 self.voice_cloned = True
