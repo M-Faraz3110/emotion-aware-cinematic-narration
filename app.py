@@ -198,16 +198,20 @@ def process_narration(
                 desc=f"🎙️ Rendering line {i+1}/{len(director_script)}: {entry['line'][:40]}..."
             )
             
+            log_status(f"  Rendering line {i+1}: {entry['line'][:50]}...")
             temp_rendered = voice_pipeline.render_script([entry])
+            log_status(f"    render_script returned {len(temp_rendered)} files")
             rendered_audio_files.extend(temp_rendered)
+            log_status(f"    Total files so far: {len(rendered_audio_files)}")
             
             log_status(f"  ✓ Rendered line {entry['line_number']}/{len(director_script)}")
         
-        log_status(f"✓ All lines rendered")
+        log_status(f"✓ All lines rendered - Total: {len(rendered_audio_files)} audio files")
         
         # === Stage 5: Assemble Audio ===
         progress(0.85, desc="🔧 Assembling final narration...")
         log_status("Stage 5: Assembling audio with pauses and crossfades...")
+        log_status(f"  Assembling {len(rendered_audio_files)} audio files...")
         
         # Generate unique filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
