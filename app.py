@@ -29,6 +29,34 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def load_screenplay_file(screenplay_file) -> str:
+    """
+    Load screenplay from uploaded file.
+    
+    Args:
+        screenplay_file: Uploaded screenplay file
+        
+    Returns:
+        Content of the screenplay file
+    """
+    if screenplay_file is None:
+        return ""
+    
+    try:
+        # Handle different Gradio file input formats
+        if isinstance(screenplay_file, dict):
+            file_path = screenplay_file.get('name') or screenplay_file.get('path')
+        elif hasattr(screenplay_file, 'name'):
+            file_path = screenplay_file.name
+        else:
+            file_path = screenplay_file
+        
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except Exception as e:
+        return f"Error loading file: {str(e)}"
+
+
 def load_example_script(example_name: str) -> str:
     """
     Load example screenplay from examples directory.
@@ -286,6 +314,13 @@ def create_gradio_interface(output_path: Optional[str] = None) -> gr.Blocks:
                     )
                     
                     gr.Markdown("### 📝 Screenplay / Dialogue")
+                    gr.Markdown("Upload a screenplay file **OR** paste text directly below.")
+                    
+                    screenplay_file = gr.File(
+                        label="Upload Screenplay (.txt, .fountain)",
+                        file_types=[".txt", ".fountain"],
+                        type="filepath"
+                    )
                     
                     # Example buttons
                     gr.Markdown("**Quick Examples:**")
@@ -364,6 +399,13 @@ def create_gradio_interface(output_path: Optional[str] = None) -> gr.Blocks:
             )
         
         # === Event Handlers ===
+        
+        # File upload handler
+        screenplay_file.change(
+            fn=load_screenplay_file,
+            inputs=screenplay_file,
+            outputs=screenplay_input
+        )
         
         # Example button clicks
         btn_blade_runner.click(
