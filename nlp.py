@@ -213,6 +213,20 @@ class NLPPipeline:
                 config.SCENE_WEIGHT * scene_score
             )
         
+        # === Step 5b: Apply delivery emotion boosts ===
+        # Strong delivery cues like (laughing), (crying) get additional weight
+        if dialogue_entry.get('parenthetical'):
+            paren_lower = dialogue_entry['parenthetical'].lower().strip()
+            if paren_lower in config.DELIVERY_EMOTION_BOOSTS:
+                boosts = config.DELIVERY_EMOTION_BOOSTS[paren_lower]
+                for emotion_name, boost_value in boosts.items():
+                    blended_scores[emotion_name] = blended_scores.get(emotion_name, 0.0) + boost_value
+                
+                # Renormalize scores to sum to 1.0 after boosting
+                total = sum(blended_scores.values())
+                if total > 0:
+                    blended_scores = {k: v/total for k, v in blended_scores.items()}
+        
         # Sort emotions by score to get top N
         sorted_emotions = sorted(blended_scores.items(), key=lambda x: x[1], reverse=True)
         

@@ -94,6 +94,25 @@ PAUSE_EXCLAMATION = 0.0     # "!" (typically faster, no extra pause)
 PAUSE_HIGH_INTENSITY = 0.4  # Added for intensity > 0.8
 PAUSE_LOW_INTENSITY = -0.2  # Subtracted for intensity < 0.3
 
+# Delivery emotion boosts (applied after blending to respect delivery cues)
+# Maps parenthetical keywords to emotion boosts (added to blended score)
+DELIVERY_EMOTION_BOOSTS = {
+    'laughing': {'joy': 0.40},          # Strong joy signal
+    'smiling': {'joy': 0.35},           # Moderate joy signal
+    'grinning': {'joy': 0.40},          # Strong joy signal
+    'crying': {'sadness': 0.40},        # Strong sadness signal
+    'sobbing': {'sadness': 0.45},       # Very strong sadness signal
+    'tearful': {'sadness': 0.35},       # Moderate sadness signal
+    'weeping': {'sadness': 0.40},       # Strong sadness signal
+    'angry': {'anger': 0.40},           # Strong anger signal
+    'furious': {'anger': 0.45},         # Very strong anger signal
+    'shouting': {'anger': 0.35},        # Moderate anger signal
+    'yelling': {'anger': 0.35},         # Moderate anger signal
+    'screaming': {'fear': 0.35},        # Moderate fear signal
+    'terrified': {'fear': 0.40},        # Strong fear signal
+    'panicked': {'fear': 0.40},         # Strong fear signal
+}
+
 # Parenthetical mappings
 PARENTHETICAL_MAPPINGS = {
     # Pauses
