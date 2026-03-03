@@ -232,6 +232,7 @@ class VoicePipeline:
                 print(f"  ✓ Line {line_num} complete!\n")
                 
             except Exception as e:
+                print(f"  ✗ Failed to render line {line_num}: {e}")
                 logger.error(f"  ✗ Failed to render line {line_num}: {e}")
                 
                 # Generate fallback error audio
@@ -261,11 +262,16 @@ class VoicePipeline:
         pitch_shift = config.EMOTION_PITCH_SHIFTS.get(emotion, 0.0)
         if pitch_shift != 0.0:
             print(f"    → Pitch shift: {pitch_shift:+.1f} semitones")
-            audio = librosa.effects.pitch_shift(
-                audio, 
-                sr=config.SAMPLE_RATE, 
-                n_steps=pitch_shift
-            )
+            try:
+                audio = librosa.effects.pitch_shift(
+                    audio, 
+                    sr=config.SAMPLE_RATE, 
+                    n_steps=pitch_shift
+                )
+                print(f"    ✓ Pitch shift successful")
+            except Exception as e:
+                print(f"    ✗ Pitch shift FAILED: {e}")
+                print(f"    ✗ Continuing without pitch modification...")
         else:
             print(f"    → No pitch shift (neutral)")
         
