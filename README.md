@@ -2,7 +2,6 @@
 
 An advanced **AI-powered narration system** that analyzes screenplay dialogue using Natural Language Processing to understand **multi-emotion blending**, intensity, and pacing — then narrates it back in a cloned voice with **emotionally-modulated prosody** and cinematic delivery.
 
-Built as a **research and portfolio project** showcasing state-of-the-art NLP, voice cloning, emotional audio processing, and audio synthesis techniques.
 ---
 
 ## 🚀 Live Demo
