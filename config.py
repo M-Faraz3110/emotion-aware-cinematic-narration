@@ -28,7 +28,7 @@ LOCAL_OUTPUT_PATH = BASE_DIR / "outputs"
 # NLP Models (HuggingFace)
 EMOTION_MODEL = "j-hartmann/emotion-english-distilroberta-base"
 SENTIMENT_MODEL = "cardiffnlp/twitter-roberta-base-sentiment-latest"
-SPACY_MODEL = "en_core_web_trf"  # Transformer-based English model
+SPACY_MODEL = "en_core_web_sm"  # Small statistical model (12MB, sufficient for clause detection)
 
 # Voice Cloning (Coqui TTS)
 TTS_MODEL = "tts_models/multilingual/multi-dataset/xtts_v2"

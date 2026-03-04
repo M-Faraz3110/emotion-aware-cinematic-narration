@@ -347,7 +347,7 @@ No choice at all.
         **Models Used:**
         - Emotion: `j-hartmann/emotion-english-distilroberta-base`
         - Sentiment: `cardiffnlp/twitter-roberta-base-sentiment-latest`
-        - NLP: spaCy `en_core_web_trf`
+        - NLP: spaCy `en_core_web_sm`
         """)
     
     return interface
